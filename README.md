@@ -1,19 +1,36 @@
-# LogicMonitor Data Publisher to MSK to Pipes to Firehose to S3
+# LogicMonitor Data Publisher → MSK → Pipes → Firehose → Snowflake
 
-Data pipeline that ingests OTLP metrics from LogicMonitor Data Publisher through AWS MSK (Kafka), transforms bundles into row events via Lambda, and lands them partitioned in S3 via Firehose.
+Data pipeline that ingests OTLP metrics from LogicMonitor Data Publisher through AWS MSK (Kafka), transforms bundles into row events via Lambda, and delivers them to Snowflake via Firehose. PowerBI connects to Snowflake for reporting.
 
 ## Architecture
 
 ```
-LMDP -> MSK (mTLS) -> EventBridge Pipe -> Lambda (1->N fan-out) -> Firehose -> S3
-                                                                                |
-                                                                                v
-                                                                          Glue/Athena
+LMDP → MSK (mTLS) → EventBridge Pipe → Lambda (1→N fan-out) → Firehose → Snowflake
+                                                                        ↘ S3 (errors only)
+
+PowerBI ← Snowflake (native connector, DirectQuery or Import)
 ```
 
-## Version Pinning
+### Data Flow
 
-This project uses exact versions for reproducibility.
+1. LogicMonitor Data Publisher sends OTLP metric bundles to MSK via mTLS
+2. EventBridge Pipe consumes from the MSK topic
+3. Lambda fan-out: each OTLP bundle is flattened into N individual row events
+4. Lambda writes row events to Firehose via `PutRecordBatch`
+5. Firehose delivers JSON records to Snowflake (failed records go to S3)
+6. PowerBI queries Snowflake directly via native connector
+
+### Snowflake Table
+
+```sql
+LM_METRICS.PIPELINE.ROW_EVENTS
+  orgId, deviceId, deviceName, datasource, instance, metric,
+  unit, type, ts, tsUnixMs, value, attributes, resource, scope
+```
+
+Quoted identifiers preserve lowercase to match `flatten.py` JSON output keys. JSON_MAPPING maps keys to matching quoted column names.
+
+## Version Pinning
 
 ### Python
 - Python: 3.11.14
@@ -32,8 +49,9 @@ This project uses exact versions for reproducibility.
 
 ## Prerequisites
 
-- AWS Account with CloudFormation, S3, IAM, Lambda, Kinesis permissions
+- AWS Account with CloudFormation, S3, IAM, Lambda, Kinesis, Secrets Manager permissions
 - AWS CLI configured with credentials
+- Snowflake account provisioned via AWS Marketplace (see setup guide below)
 - Node.js 25.2.0 or compatible LTS
 - Python 3.11.x
 - uv package manager installed
@@ -41,129 +59,109 @@ This project uses exact versions for reproducibility.
 
 ## Initial Setup
 
-### 1. Clone and Navigate
+### 1. Clone and Install
 
 ```bash
-cd cloud/aws/kafka_msk_pipeline
-```
-
-### 2. Install Dependencies
-
-```bash
-# Using Make (recommended)
+git clone https://github.com/ryanmat/lm-data-publisher-kafka_msk_pipeline.git
+cd lm-data-publisher-kafka_msk_pipeline
 make setup
-
-# Or manually:
-uv sync --locked    # Python dependencies
-npm install         # Node dependencies
 ```
 
-### 3. Install Pre-commit Hooks (Optional but Recommended)
-
-Pre-commit hooks run black, ruff, eslint, and prettier automatically before each commit.
+### 2. Configure Environment
 
 ```bash
-# Install pre-commit
-pip install pre-commit
-
-# Install the git hooks
-pre-commit install
-
-# Test the hooks (optional)
-pre-commit run --all-files
+cp .env.example .env
+# Edit .env with your Snowflake account URL, MSK cluster details, etc.
 ```
 
-Hooks will now run automatically on `git commit`. To bypass hooks temporarily (not recommended):
-```bash
-git commit --no-verify
-```
+### 3. Snowflake Marketplace Setup
+
+Follow `docs/snowflake-marketplace-setup.md` to:
+1. Subscribe to Snowflake via AWS Marketplace
+2. Generate RSA key pair for service user auth
+3. Create service user in Snowflake
+4. Store private key in Secrets Manager
 
 ### 4. AWS CDK Bootstrap
 
-Before synthesizing or deploying, bootstrap your AWS environment for CDK. This creates the S3 bucket, ECR repository, and IAM roles required for CDK deployments.
-
 ```bash
-# Bootstrap for your account and region
-npx cdk bootstrap aws://ACCOUNT-ID/REGION
-
-# Example for us-west-2
-npx cdk bootstrap aws://497495481268/us-west-2
+npx cdk bootstrap aws://497495481268/us-east-1
 ```
-
-Bootstrap is required once per account/region combination.
 
 ### 5. Verify Setup
 
 ```bash
-# Run all tests
 make test
-
-# Or individually:
-uv run pytest -q    # Python tests
-npm test            # CDK infrastructure tests
 ```
 
 ## Project Structure
 
 ```
 .
-├── docs/               # Documentation and specifications
-│   ├── plan.md        # Implementation plan with 17 prompts
-│   ├── todo.md        # Progress tracking
-│   └── kafka_ingest_spec.md  # OTLP to Row Event mapping spec
-├── infra/             # AWS CDK TypeScript infrastructure
-│   ├── bin/           # CDK app entry point
-│   └── lib/           # Stack definitions and constructs
-├── lambda/            # Python Lambda functions
-├── tests/             # Python unit tests
-├── tools/             # Utility scripts (Kafka publish, S3 verify)
-├── .github/           # CI/CD workflows
-├── Makefile           # Convenience commands
-├── pyproject.toml     # Python dependencies (uv)
-├── package.json       # Node dependencies
-├── cdk.json           # CDK configuration
-└── tsconfig.json      # TypeScript configuration
+├── infra/                  # AWS CDK TypeScript infrastructure
+│   ├── bin/app.ts         # CDK app entry point
+│   └── lib/
+│       ├── base-stack.ts           # Base infrastructure
+│       ├── storage-stack.ts        # S3 error/backup bucket + KMS
+│       ├── delivery-stack.ts       # Firehose → Snowflake
+│       ├── network-stack.ts        # VPC endpoints + security groups
+│       ├── snowflake-auth-stack.ts # Secrets Manager for SF key pair
+│       ├── snowflake-setup-stack.ts # Custom Resource for SF DDL
+│       ├── auth-stack.ts           # mTLS secrets for MSK
+│       ├── pipe-stack.ts           # EventBridge Pipe (MSK → Lambda)
+│       └── alarms-stack.ts         # CloudWatch alarms + budget
+├── lambda/                 # Python Lambda functions
+│   ├── handler.py         # EventBridge Pipes handler (MSK → Firehose)
+│   ├── flatten.py         # OTLP bundle → row events (1→N)
+│   ├── spec_loader.py     # Schema validation from spec
+│   └── snowflake_setup/   # Custom Resource for Snowflake DDL
+├── tests/                  # Python unit tests
+│   └── fixtures/otlp/    # OTLP test data
+├── tools/                  # Utility scripts
+├── Makefile               # Convenience commands
+├── pyproject.toml         # Python dependencies (uv)
+├── package.json           # Node dependencies
+├── cdk.json               # CDK configuration
+└── tsconfig.json          # TypeScript configuration
 ```
+
+## CDK Stacks
+
+| Stack | Purpose |
+|-------|---------|
+| **BaseStack** | Common infrastructure foundation |
+| **StorageStack** | S3 error/backup bucket with KMS encryption |
+| **SnowflakeAuthStack** | Secrets Manager secret for Snowflake key-pair auth |
+| **SnowflakeSetupStack** | Custom Resource Lambda that runs Snowflake DDL |
+| **DeliveryStack** | Firehose delivery stream with Snowflake destination |
+| **NetworkStack** | VPC endpoints and security groups for MSK access |
+| **AuthStack** | mTLS certificate secrets for MSK authentication |
+| **PipeStack** | EventBridge Pipe (MSK source → Lambda target) |
+| **AlarmsStack** | CloudWatch alarms and budget monitoring |
 
 ## Development Workflow
 
 ### Running Tests
 
 ```bash
-# All tests (Python + CDK)
-make test
-
-# Python tests only
-make test-python
-
-# CDK infrastructure tests only
-make test-infra
+make test            # All tests (Python + CDK)
+make test-python     # Python tests only
+make test-infra      # CDK infrastructure tests only
 ```
 
 ### Code Quality
 
 ```bash
-# Run linters
-make lint
-
-# Auto-format code
-make format
+make lint            # Run linters
+make format          # Auto-format code
 ```
 
 ### CDK Operations
 
 ```bash
-# Synthesize CloudFormation templates
-make synth
-# Or: npm run synth
-
-# Deploy to AWS
-make deploy
-# Or: npm run deploy
-
-# Destroy infrastructure
-make destroy
-# Or: npx cdk destroy --all
+make synth           # Synthesize CloudFormation templates
+make deploy          # Deploy to AWS
+make destroy         # Destroy infrastructure
 ```
 
 ## Spec-Driven Fixtures
@@ -177,141 +175,64 @@ This project uses schema-driven development from `docs/kafka_ingest_spec.md`. Th
 - Required field list for validation
 - Test fixtures for contract testing
 
-Example usage:
-
-```python
-from spec_loader import SpecLoader
-
-loader = SpecLoader()
-required_fields = loader.get_required_fields()
-field_types = loader.get_field_types()
-
-# Validate a row event
-is_valid = loader.validate_row_event(row_event)
-```
-
 ### Test Fixtures
 
-Test fixtures are stored in `tests/fixtures/otlp/`:
+Test fixtures in `tests/fixtures/otlp/`:
 - `otlp_bundle_ok.json` - Sample OTLP bundle from LMDP
 - `row_event_ok.json` - Expected flattened row event output
 - `row_event_missing_required.json` - Invalid event for negative testing
 
-These fixtures ensure the transformation logic matches the spec exactly.
-
 ## Security
 
-### Secret Detection
-
-Gitleaks runs in CI to block commits containing secrets. Do not commit `.pem`, `.key`, `.crt`, credentials, or `.env` files. mTLS certificates are stored in AWS Secrets Manager.
+### Secret Management
+- Snowflake key pair stored in AWS Secrets Manager
+- mTLS certificates stored in AWS Secrets Manager
+- `.gitignore` excludes `.pem`, `.key`, `.p8`, `.env` files
 
 ### CDK Nag
-
 All infrastructure tests include cdk-nag security checks. Builds fail on High severity findings. Suppressions require documented justification in `infra/lib/nag-suppressions.ts`.
 
 ### mTLS Authentication
-
-Pipeline uses mTLS (mutual TLS) for Kafka authentication. No SASL or IAM authentication on the data plane. Client certificates provisioned via ACM Private CA and stored in AWS Secrets Manager. EventBridge Pipes authenticates to MSK using mTLS.
-
-## CI/CD
-
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push:
-
-1. Security Scan: Gitleaks checks for exposed secrets
-2. Python Tests: pytest + black + ruff
-3. Infrastructure Tests: Jest + ESLint + CDK Nag
-4. CDK Synth: Validates CloudFormation templates
+Pipeline uses mTLS (mutual TLS) for Kafka authentication. No SASL or IAM authentication on the data plane. EventBridge Pipes authenticates to MSK using mTLS client certificates.
 
 ## AWS Resources
 
-### MSK Cluster
-- Name: lm-datapublisher-demo
-- Kafka Version: 3.8.x
-- Type: Provisioned
-- Region: us-west-2
-
-### S3 Bucket
-- Name: lm-datapublisher-metrics
-- Partitioning: `orgId/metric/YYYY/MM/DD/HH/`
-- Encryption: KMS CMK
-- Lifecycle: Configured for cost optimization
-
-### Topics
-- Topic: `lm.metrics.otlp`
-- Format: UTF-8 JSON
-- Encoding: `kafka.send.data.in.String=true`
-
-## Implementation Progress
-
-This project follows a 17-prompt iterative plan detailed in `docs/plan.md`.
-
-Current Status: Prompt 0 Complete
-- Environment pinning and reproducibility
-- CDK bootstrap support
-- Security gates (cdk-nag, gitleaks)
-- Test-first development setup
-
-Next Steps: See `docs/todo.md` for detailed progress tracking.
+| Resource | Details |
+|----------|---------|
+| **Region** | us-east-1 |
+| **MSK Cluster** | mTLS auth, Kafka 3.8.x |
+| **MSK Topic** | `lm.metrics.otlp` (UTF-8 JSON) |
+| **Firehose** | DirectPut, Snowflake destination |
+| **S3 Bucket** | Error/backup records only, KMS encrypted |
+| **Snowflake DB** | `LM_METRICS.PIPELINE.ROW_EVENTS` |
+| **Snowflake WH** | `LM_FIREHOSE_WH` (XSMALL, auto-suspend 60s) |
 
 ## Key Design Decisions
 
-1. 1-to-N Fan-out: Lambda target splits OTLP bundles into row events for query-friendly S3 layout
-2. Dynamic Partitioning: Firehose uses JQ to partition by `orgId`, `metric`, and date
-3. Test-Driven Development: Tests written before implementation (pytest + Jest)
-4. Security-First: mTLS authentication, cdk-nag enforcement, secret scanning
+1. **Snowflake over S3+Athena**: PowerBI users are the primary consumers; Snowflake provides native PowerBI connector with DirectQuery support
+2. **1-to-N Fan-out**: Lambda splits OTLP bundles into individual row events for query-friendly table structure
+3. **S3 for errors only**: Firehose sends failed records to S3; successful records go directly to Snowflake
+4. **JSON_MAPPING**: Firehose maps JSON keys to quoted Snowflake column names, preserving lowercase from `flatten.py`
+5. **Test-Driven Development**: Tests written before implementation (pytest + Jest)
+6. **Security-First**: mTLS auth, cdk-nag enforcement, Secrets Manager, secret scanning
 
 ## Troubleshooting
 
 ### CDK Bootstrap Issues
-
 ```bash
-# If bootstrap fails, check your AWS credentials
-aws sts get-caller-identity
-
-# Ensure you have required permissions
-# - cloudformation:*
-# - s3:*
-# - iam:CreateRole, iam:AttachRolePolicy, etc.
+aws sts get-caller-identity   # Verify credentials
+npx cdk bootstrap aws://497495481268/us-east-1
 ```
 
 ### Test Failures
-
 ```bash
-# Clean and reinstall
-make clean
-make setup
-make test
+make clean && make setup && make test
 ```
 
-### Node Version Mismatch
-
+### Snowflake Connectivity
 ```bash
-# Use exact Node version
-nvm install 25.2.0
-nvm use 25.2.0
+python tools/verify_snowflake.py
 ```
-
-## Cost Controls
-
-- S3 lifecycle policies for Intelligent-Tiering/Glacier
-- CloudWatch log retention: 14-30 days
-- Optional metrics disabled by default
-- Budget alarms configured (Prompt 16)
-
-## Documentation
-
-- Implementation Plan: `docs/plan.md` - 17 detailed prompts
-- OTLP Spec: `docs/kafka_ingest_spec.md` - Canonical row event schema
-- Progress: `docs/todo.md` - Task tracking
-- Python Standards: `docs/python.md`
-- Source Control: `docs/source-control.md`
-- uv Guide: `docs/using-uv.md`
-
-## Troubleshooting Checklist
-
-1. Check `docs/plan.md` for implementation guidance
-2. Review test failures with `make test`
-3. Verify AWS credentials and permissions with `aws sts get-caller-identity`
 
 ## License
 

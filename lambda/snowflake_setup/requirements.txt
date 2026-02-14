@@ -1,0 +1,4 @@
+# Description: Python dependencies for Snowflake setup Custom Resource Lambda
+# Description: snowflake-connector-python for DDL execution, boto3 for Secrets Manager access
+snowflake-connector-python>=3.6.0
+boto3>=1.40.0

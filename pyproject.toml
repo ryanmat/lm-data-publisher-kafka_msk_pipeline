@@ -1,7 +1,7 @@
 [project]
 name = "kafka-msk-pipeline"
 version = "0.1.0"
-description = "LogicMonitor Data Publisher to MSK to EventBridge Pipes to Firehose to S3"
+description = "LogicMonitor Data Publisher to MSK to EventBridge Pipes to Firehose to Snowflake"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

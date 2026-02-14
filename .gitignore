@@ -1,0 +1,50 @@
+# Description: Git ignore rules for LMDP MSK Pipeline project
+# Description: Excludes build artifacts, secrets, IDE files, and internal planning docs
+
+# Node
+node_modules/
+dist/
+
+# CDK
+cdk.out/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets and credentials
+.env
+*.pem
+*.key
+*.p8
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jest
+.jest-localstorage
+
+# Claude / LLM
+CLAUDE.md
+.claude/
+
+# Internal planning docs (not for git)
+docs/
+
+# UV lock is tracked, but ignore local uv cache
+.uv/

@@ -1,5 +1,5 @@
-// ABOUTME: StorageStack creates S3 bucket for data lake with KMS encryption and lifecycle policies
-// ABOUTME: Provides secure, cost-optimized storage for OTLP metrics data
+// Description: StorageStack creates S3 bucket for Firehose error/backup data with KMS encryption
+// Description: Snowflake is the primary destination; this bucket captures failed deliveries only
 
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -14,20 +14,20 @@ export class StorageStack extends cdk.Stack {
     super(scope, id, props);
 
     // Create KMS key for S3 bucket encryption
-    this.kmsKey = new kms.Key(this, 'DataLakeKey', {
-      description: 'KMS key for S3 data lake bucket encryption',
+    this.kmsKey = new kms.Key(this, 'ErrorBackupKey', {
+      description: 'KMS key for S3 error/backup bucket encryption',
       enableKeyRotation: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     // Create KMS alias for discoverability
-    new kms.Alias(this, 'DataLakeKeyAlias', {
-      aliasName: 'alias/lm-datapublisher-datalake',
+    new kms.Alias(this, 'ErrorBackupKeyAlias', {
+      aliasName: 'alias/lm-datapublisher-error-backup',
       targetKey: this.kmsKey,
     });
 
-    // Create S3 bucket for data lake
-    this.bucket = new s3.Bucket(this, 'DataLakeBucket', {
+    // Create S3 bucket for Firehose error/backup records
+    this.bucket = new s3.Bucket(this, 'ErrorBackupBucket', {
       // Encryption with customer-managed KMS key
       encryption: s3.BucketEncryption.KMS,
       encryptionKey: this.kmsKey,
@@ -35,48 +35,24 @@ export class StorageStack extends cdk.Stack {
       // Block all public access
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
 
-      // Lifecycle rules for cost optimization
-      lifecycleRules: [
-        {
-          id: 'transition-to-ia',
-          enabled: true,
-          transitions: [
-            {
-              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: cdk.Duration.days(90),
-            },
-            {
-              storageClass: s3.StorageClass.GLACIER,
-              transitionAfter: cdk.Duration.days(180),
-            },
-          ],
-        },
-        {
-          id: 'expire-old-data',
-          enabled: true,
-          expiration: cdk.Duration.days(365),
-        },
-      ],
-
-      // Versioning for data protection
+      // No lifecycle rules — Snowflake is primary destination,
+      // this bucket only captures failed Firehose deliveries
       versioned: false,
-
-      // Auto-delete objects on stack deletion (for demo environments)
       autoDeleteObjects: false,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     // Export bucket name
-    new cdk.CfnOutput(this, 'DataLakeBucketName', {
+    new cdk.CfnOutput(this, 'ErrorBackupBucketName', {
       value: this.bucket.bucketName,
-      description: 'S3 bucket name for data lake',
+      description: 'S3 bucket name for error/backup records',
       exportName: `${this.stackName}-BucketName`,
     });
 
     // Export KMS key ARN
-    new cdk.CfnOutput(this, 'DataLakeKmsKeyArn', {
+    new cdk.CfnOutput(this, 'ErrorBackupKmsKeyArn', {
       value: this.kmsKey.keyArn,
-      description: 'KMS key ARN for data lake encryption',
+      description: 'KMS key ARN for error/backup bucket encryption',
       exportName: `${this.stackName}-KmsKeyArn`,
     });
   }

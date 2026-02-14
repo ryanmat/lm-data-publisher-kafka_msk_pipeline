@@ -1,5 +1,5 @@
-// ABOUTME: Tests for StorageStack (S3 + KMS + lifecycle)
-// ABOUTME: Validates encryption, lifecycle policies, block public access, and CDK Nag compliance
+// Description: Tests for StorageStack (S3 error/backup bucket + KMS)
+// Description: Validates encryption, block public access, no lifecycle policies, and CDK Nag compliance
 
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
@@ -14,7 +14,7 @@ describe('StorageStack', () => {
   beforeEach(() => {
     app = new cdk.App();
     stack = new StorageStack(app, 'TestStorageStack', {
-      env: { account: '123456789012', region: 'us-west-2' },
+      env: { account: '123456789012', region: 'us-east-1' },
     });
     template = Template.fromStack(stack);
   });
@@ -25,7 +25,7 @@ describe('StorageStack', () => {
 
   test('Creates KMS key for bucket encryption', () => {
     template.hasResourceProperties('AWS::KMS::Key', {
-      Description: Match.stringLikeRegexp('.*S3.*encryption.*'),
+      Description: Match.stringLikeRegexp('.*error.*backup.*encryption.*'),
       EnableKeyRotation: true,
     });
   });
@@ -56,40 +56,32 @@ describe('StorageStack', () => {
     });
   });
 
-  test('Configures lifecycle policy for cost optimization', () => {
-    template.hasResourceProperties('AWS::S3::Bucket', {
-      LifecycleConfiguration: {
-        Rules: Match.arrayWith([
-          Match.objectLike({
-            Status: 'Enabled',
-          }),
-        ]),
-      },
-    });
+  test('Bucket has no lifecycle rules', () => {
+    const resources = template.findResources('AWS::S3::Bucket');
+    const bucket = Object.values(resources)[0];
+    expect(bucket.Properties.LifecycleConfiguration).toBeUndefined();
   });
 
   test('Exports bucket name as stack output', () => {
-    template.hasOutput('DataLakeBucketName', {
+    template.hasOutput('ErrorBackupBucketName', {
       Description: Match.stringLikeRegexp('.*bucket.*'),
     });
   });
 
   test('Exports KMS key ARN as stack output', () => {
-    template.hasOutput('DataLakeKmsKeyArn', {
+    template.hasOutput('ErrorBackupKmsKeyArn', {
       Description: Match.stringLikeRegexp('.*KMS.*'),
     });
   });
 
   test('Bucket name includes hash suffix for uniqueness', () => {
-    // Stack synthesis adds unique hash suffix to physical names
-    // Verify bucket has a logical ID that will generate unique physical name
     const buckets = template.findResources('AWS::S3::Bucket');
     expect(Object.keys(buckets).length).toBeGreaterThan(0);
   });
 
-  test('KMS key has alias for discoverability', () => {
+  test('KMS key alias targets error-backup naming', () => {
     template.hasResourceProperties('AWS::KMS::Alias', {
-      AliasName: Match.stringLikeRegexp('alias/.*'),
+      AliasName: 'alias/lm-datapublisher-error-backup',
     });
   });
 
