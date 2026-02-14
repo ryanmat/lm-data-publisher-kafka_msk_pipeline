@@ -1,1 +1,1 @@
-# lm-data-publisher-kafka_msk_pipeline
+# Kafka MSK Pipeline for LogicMonitor DataPublisher
