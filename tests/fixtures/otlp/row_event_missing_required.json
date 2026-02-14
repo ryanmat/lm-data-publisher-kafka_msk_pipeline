@@ -1,0 +1,5 @@
+{
+  "orgId": "acme",
+  "metric": "cpu.utilization",
+  "value": 1
+}

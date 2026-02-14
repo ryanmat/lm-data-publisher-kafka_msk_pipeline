@@ -1,0 +1,34 @@
+[project]
+name = "kafka-msk-pipeline"
+version = "0.1.0"
+description = "LogicMonitor Data Publisher to MSK to EventBridge Pipes to Firehose to S3"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.40.74",
+    "moto>=5.1.16",
+    "pyyaml>=6.0.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=lambda --cov-report=term-missing"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[dependency-groups]
+dev = [
+    "black>=25.11.0",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.5",
+]

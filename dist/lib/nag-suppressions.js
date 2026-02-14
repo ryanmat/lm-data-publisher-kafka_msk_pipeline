@@ -1,0 +1,18 @@
+"use strict";
+// ABOUTME: CDK Nag suppressions for known acceptable violations
+// ABOUTME: Documents why specific security findings are suppressed
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.globalSuppressions = void 0;
+/**
+ * Global suppressions that apply across all stacks
+ * Only add suppressions here with clear justification
+ */
+exports.globalSuppressions = [
+// Add suppressions here as needed with detailed reasons
+// Example:
+// {
+//   id: 'AwsSolutions-IAM4',
+//   reason: 'AWS managed policies are acceptable for Lambda execution roles in this demo'
+// }
+];
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoibmFnLXN1cHByZXNzaW9ucy5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uLy4uL2luZnJhL2xpYi9uYWctc3VwcHJlc3Npb25zLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7QUFBQSxnRUFBZ0U7QUFDaEUsbUVBQW1FOzs7QUFJbkU7OztHQUdHO0FBQ1UsUUFBQSxrQkFBa0IsR0FBeUI7QUFDdEQsd0RBQXdEO0FBQ3hELFdBQVc7QUFDWCxJQUFJO0FBQ0osNkJBQTZCO0FBQzdCLDBGQUEwRjtBQUMxRixJQUFJO0NBQ0wsQ0FBQyIsInNvdXJjZXNDb250ZW50IjpbIi8vIEFCT1VUTUU6IENESyBOYWcgc3VwcHJlc3Npb25zIGZvciBrbm93biBhY2NlcHRhYmxlIHZpb2xhdGlvbnNcbi8vIEFCT1VUTUU6IERvY3VtZW50cyB3aHkgc3BlY2lmaWMgc2VjdXJpdHkgZmluZGluZ3MgYXJlIHN1cHByZXNzZWRcblxuaW1wb3J0IHsgTmFnUGFja1N1cHByZXNzaW9uIH0gZnJvbSAnY2RrLW5hZyc7XG5cbi8qKlxuICogR2xvYmFsIHN1cHByZXNzaW9ucyB0aGF0IGFwcGx5IGFjcm9zcyBhbGwgc3RhY2tzXG4gKiBPbmx5IGFkZCBzdXBwcmVzc2lvbnMgaGVyZSB3aXRoIGNsZWFyIGp1c3RpZmljYXRpb25cbiAqL1xuZXhwb3J0IGNvbnN0IGdsb2JhbFN1cHByZXNzaW9uczogTmFnUGFja1N1cHByZXNzaW9uW10gPSBbXG4gIC8vIEFkZCBzdXBwcmVzc2lvbnMgaGVyZSBhcyBuZWVkZWQgd2l0aCBkZXRhaWxlZCByZWFzb25zXG4gIC8vIEV4YW1wbGU6XG4gIC8vIHtcbiAgLy8gICBpZDogJ0F3c1NvbHV0aW9ucy1JQU00JyxcbiAgLy8gICByZWFzb246ICdBV1MgbWFuYWdlZCBwb2xpY2llcyBhcmUgYWNjZXB0YWJsZSBmb3IgTGFtYmRhIGV4ZWN1dGlvbiByb2xlcyBpbiB0aGlzIGRlbW8nXG4gIC8vIH1cbl07XG4iXX0=

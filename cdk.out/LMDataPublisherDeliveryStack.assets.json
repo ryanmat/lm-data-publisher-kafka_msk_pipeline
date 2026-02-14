@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "a3bf558e2a2d36bd5a01f2c85a74d6b0e966487d85a55f4d80b9bc8b0ec4b43d": {
+      "displayName": "LMDataPublisherDeliveryStack Template",
+      "source": {
+        "path": "LMDataPublisherDeliveryStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-west-2-61e6decb": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-west-2",
+          "objectKey": "a3bf558e2a2d36bd5a01f2c85a74d6b0e966487d85a55f4d80b9bc8b0ec4b43d.json",
+          "region": "us-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

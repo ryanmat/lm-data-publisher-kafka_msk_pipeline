@@ -1,0 +1,65 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "hostId",
+            "value": {
+              "stringValue": "i-abc"
+            }
+          },
+          {
+            "key": "hostName",
+            "value": {
+              "stringValue": "acme-prod-web-01"
+            }
+          },
+          {
+            "key": "orgId",
+            "value": {
+              "stringValue": "acme"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "aws.ec2",
+            "version": "1.0",
+            "epoch": "1768646400"
+          },
+          "metrics": [
+            {
+              "name": "cpu.utilization",
+              "unit": "percent",
+              "gauge": {
+                "dataPoints": [
+                  {
+                    "timeUnixNano": "1768646400000000000",
+                    "asDouble": 42.7,
+                    "attributes": [
+                      {
+                        "key": "dataSourceInstanceName",
+                        "value": {
+                          "stringValue": "cpu_total"
+                        }
+                      },
+                      {
+                        "key": "wildAlias",
+                        "value": {
+                          "stringValue": "CPU Total"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

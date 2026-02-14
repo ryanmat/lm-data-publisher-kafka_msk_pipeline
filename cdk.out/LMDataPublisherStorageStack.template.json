@@ -1,0 +1,197 @@
+{
+ "Resources": {
+  "DataLakeKey37130A3E": {
+   "Type": "AWS::KMS::Key",
+   "Properties": {
+    "Description": "KMS key for S3 data lake bucket encryption",
+    "EnableKeyRotation": true,
+    "KeyPolicy": {
+     "Statement": [
+      {
+       "Action": "kms:*",
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:aws:iam::",
+           {
+            "Ref": "AWS::AccountId"
+           },
+           ":root"
+          ]
+         ]
+        }
+       },
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "LMDataPublisherStorageStack/DataLakeKey/Resource"
+   }
+  },
+  "DataLakeKeyAliasEBBAEBEB": {
+   "Type": "AWS::KMS::Alias",
+   "Properties": {
+    "AliasName": "alias/lm-datapublisher-datalake",
+    "TargetKeyId": {
+     "Fn::GetAtt": [
+      "DataLakeKey37130A3E",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "LMDataPublisherStorageStack/DataLakeKeyAlias/Resource"
+   }
+  },
+  "DataLakeBucket0256EA8E": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::GetAtt": [
+          "DataLakeKey37130A3E",
+          "Arn"
+         ]
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "Id": "transition-to-ia",
+       "Status": "Enabled",
+       "Transitions": [
+        {
+         "StorageClass": "STANDARD_IA",
+         "TransitionInDays": 90
+        },
+        {
+         "StorageClass": "GLACIER",
+         "TransitionInDays": 180
+        }
+       ]
+      },
+      {
+       "ExpirationInDays": 365,
+       "Id": "expire-old-data",
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "LMDataPublisherStorageStack/DataLakeBucket/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzIy0TNQTCwv1k1OydbNyUzSqw4uSUzO1gEKxVdn5xbrVXunVuo4p+WBKMeczMRiEAfMqNUpNtardipNzk4tAQlCWLW1ILZ/aUlBaUmtTl5+SqpeVrF+mZGpnhHQpqzizEzdotK8kszcVL0gCA0A+7ylV4YAAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "LMDataPublisherStorageStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "DataLakeBucketName": {
+   "Description": "S3 bucket name for data lake",
+   "Value": {
+    "Ref": "DataLakeBucket0256EA8E"
+   },
+   "Export": {
+    "Name": "LMDataPublisherStorageStack-BucketName"
+   }
+  },
+  "DataLakeKmsKeyArn": {
+   "Description": "KMS key ARN for data lake encryption",
+   "Value": {
+    "Fn::GetAtt": [
+     "DataLakeKey37130A3E",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "LMDataPublisherStorageStack-KmsKeyArn"
+   }
+  },
+  "ExportsOutputFnGetAttDataLakeBucket0256EA8EArn1F6EDADC": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DataLakeBucket0256EA8E",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "LMDataPublisherStorageStack:ExportsOutputFnGetAttDataLakeBucket0256EA8EArn1F6EDADC"
+   }
+  },
+  "ExportsOutputFnGetAttDataLakeKey37130A3EArn565CC05E": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DataLakeKey37130A3E",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "LMDataPublisherStorageStack:ExportsOutputFnGetAttDataLakeKey37130A3EArn565CC05E"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

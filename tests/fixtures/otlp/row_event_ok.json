@@ -1,0 +1,22 @@
+{
+  "orgId": "acme",
+  "deviceId": "i-abc",
+  "deviceName": "acme-prod-web-01",
+  "datasource": "aws.ec2",
+  "instance": "cpu_total",
+  "metric": "cpu.utilization",
+  "unit": "percent",
+  "type": "gauge",
+  "ts": "2025-11-17T00:00:00Z",
+  "tsUnixMs": 1768646400000,
+  "value": 42.7,
+  "attributes": {
+    "region": "us-east-1"
+  },
+  "resource": {
+    "accountId": "123456789012"
+  },
+  "scope": {
+    "instrumentation": "lmdp-1.0"
+  }
+}
