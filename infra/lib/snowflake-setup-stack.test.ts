@@ -54,9 +54,7 @@ describe('SnowflakeSetupStack', () => {
       PolicyDocument: Match.objectLike({
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: Match.arrayWith([
-              'secretsmanager:GetSecretValue',
-            ]),
+            Action: 'secretsmanager:GetSecretValue',
             Effect: 'Allow',
           }),
         ]),
